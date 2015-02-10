@@ -7,7 +7,7 @@ const int ledPin = 11;   // Teensy has LED on 11, Teensy++ on 6
 const int redPin =  12;
 const int greenPin =  15;
 const int bluePin =  14;
-const int buttonPin = 8;
+const int buttonPin = 10;
 const int PIRPin = 9;
 
 const int lightPin = 0;
@@ -16,6 +16,8 @@ const int tempPin = 1;
 #define DHTPIN 19
 #define DHTTYPE DHT22
 
+#define I2C_ADDR 10
+
 DHT dht(DHTPIN, DHTTYPE);
 
 // LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
@@ -23,7 +25,9 @@ DHT dht(DHTPIN, DHTTYPE);
 // the setup() method runs once, when the sketch starts
 
 void setup() {
-  Wire.begin(10);
+  Wire.begin(I2C_ADDR);
+  Wire.onReceive(receiveEvent);
+  Wire.onRequest(requestEvent);
   // initialize the digital pin as an output.
   pinMode(ledPin, OUTPUT);
   pinMode(redPin, OUTPUT);
@@ -42,21 +46,25 @@ void setup() {
   // lcd.print("Hello!");  
 }
 
+int x;
 int redI = 0;
 int greenI = 0;
 int blueI = 255;
 int lastButton = LOW;
 int cycl = 0;
+float intensity = 0.5;
+
+// measurements
+float dht_temp;
+float dht_hum;
+int pir;
+int button;
 
 void loop() {
   int i;
   int l;
   int light;
   float temp;
-  float dht_temp;
-  float dht_hum;
-  int pir;
-  int button;
  
   if (cycl == 50) {
     cycl = 0;
@@ -116,6 +124,12 @@ void loop() {
       lcd.print(light);
     }
 */
+    if (pir == HIGH) {
+      intensity = 1.0;
+    } else {
+      intensity = 0.1;
+    }
+
   }
 
   if (blueI >= 250 && redI < 250 && greenI < 5) {
@@ -136,12 +150,22 @@ void loop() {
   if (blueI >= 250 && greenI >= 5) {
     greenI-=5;
   }
- 
-  analogWrite(bluePin, blueI);  
-  analogWrite(redPin, redI);
-  analogWrite(greenPin, greenI);
+
+  analogWrite(bluePin, blueI*intensity);  
+  analogWrite(redPin, redI*intensity);
+  analogWrite(greenPin, greenI*intensity);
  
   cycl++;
   delay(10);
   
+}
+
+void receiveEvent(int data) {
+  x = Wire.read();
+}
+
+void requestEvent() {
+  byte data[2] = { pir == HIGH ? 1 : 0, button == HIGH ? 1 : 0};
+  
+  Wire.send(data, 2);
 }
